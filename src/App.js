@@ -5,22 +5,46 @@ import NewPost from './dynamic/NewPost';
 import PostPage from './dynamic/PostPage';
 import About from './dynamic/About';
 import Missing from './dynamic/Missing';
+import EditPost from './dynamic/EditPost';
 
 import Layout from './Layout';
 
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import {format} from 'date-fns';
-
-import { listPosts } from './listPosts';
+import api from './api/posts';
 
 function App() {
 	const [search, setSearch] = useState('');
 	const [searchResult, setSearchResult] = useState([]);
   const [postTitle, setPostTitle] = useState('')
   const [postBody, setPostBody] = useState('')
-	const [posts, setPosts] = useState(listPosts);
+  const [editTitle, setEditTitle] = useState('')
+  const [editBody, setEditBody] = useState('')
+	const [posts, setPosts] = useState([]);
   const navigate = useNavigate();
+
+  useEffect(()=>{
+    const fetchPosts = async () => {
+      try{
+        const response = await api.get('/posts');
+        if(response && response.data) setPosts(response.data);
+      }
+      catch(e){
+        if(e.response){
+          //get a response different from 200
+          console.log(e.response.data);
+          console.log(e.response.status);
+          console.log(e.response.headers);
+        }
+        else {
+          //get no response
+          console.log(`Error: ${e.message}`)
+        }
+      }
+    }
+    fetchPosts();
+  },[]);
 
   useEffect(()=>{
     const filteredResults = posts.filter(post => 
@@ -30,7 +54,7 @@ function App() {
     setSearchResult(filteredResults.reverse());
   },[posts,search]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const id = posts.length ? posts[posts.length - 1].id + 1 : 1;
     const datetime = format(new Date(), 'MMMM dd, yyyy pp');
@@ -40,17 +64,49 @@ function App() {
       datetime,
       body:postBody
     };
-    const allPosts = [...posts, newPost];
-    setPosts(allPosts);
-    setPostTitle('');
-    setPostBody('');
-    navigate('/');
+    try{
+      const response = await api.post('/posts',newPost)
+      const allPosts = [...posts, response.data];
+      setPosts(allPosts);
+      setPostTitle('');
+      setPostBody('');
+      navigate('/');
+    }
+    catch(e){
+      console.log(`Error: ${e.message}`);
+    }
   }
 
-	const handleDelete = (id) => {
-    const postsList = posts.filter(post => post.id !== id)
-    setPosts(postsList)
-    navigate('/')
+  const handleEdit = async (id) => {
+    const datetime = format(new Date(), 'MMMM dd, yyyy pp');
+    const updatedPost = {
+      id,
+      title:editTitle,
+      datetime,
+      body:editBody
+    };
+    try{
+      const response = await api.put(`/posts/${id}`, updatedPost);
+      setPosts(posts.map(post=>post.id===id?{...response.data}:post))
+      setEditTitle('')
+      setEditBody('')
+      navigate('/')
+    }
+    catch(e){
+      console.log(`Error: ${e.message}`);
+    }
+  }
+
+	const handleDelete = async (id) => {
+    try{
+      await api.delete(`/posts/${id}`)
+      const postsList = posts.filter(post => post.id !== id)
+      setPosts(postsList)
+      navigate('/')
+    }
+    catch(e){
+      console.log(`Error: ${e.message}`);
+    }
   }
 
   return (
@@ -70,6 +126,14 @@ function App() {
               handleDelete={handleDelete}
               />}/>
           </Route>
+          <Route path='edit/:id' element={<EditPost
+              posts={posts}
+              handleEdit = {handleEdit}
+              editTitle = {editTitle}
+              editBody={editBody}
+              setEditTitle={setEditTitle}
+              setEditBody = {setEditBody}
+              />}/>
           <Route path='about' element={<About/>} />
           <Route path='*' element={<Missing/>} />
         </Route>
