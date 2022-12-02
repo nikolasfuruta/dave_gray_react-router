@@ -13,6 +13,8 @@ import { Route, Routes, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import {format} from 'date-fns';
 import api from './api/posts';
+import useWindowSize from './hooks/useWindowSize';
+import useAxiosFetch from './hooks/useAxiosFetch';
 
 function App() {
 	const [search, setSearch] = useState('');
@@ -23,28 +25,35 @@ function App() {
   const [editBody, setEditBody] = useState('')
 	const [posts, setPosts] = useState([]);
   const navigate = useNavigate();
+  const {width} = useWindowSize();
+
+  const {data,fetchError, isLoading} = useAxiosFetch('http://localhost:3500/posts');
+
+  // useEffect(()=>{
+  //   const fetchPosts = async () => {
+  //     try{
+  //       const response = await api.get('/posts');
+  //       if(response && response.data) setPosts(response.data);
+  //     }
+  //     catch(e){
+  //       if(e.response){
+  //         //get a response different from 200
+  //         console.log(e.response.data);
+  //         console.log(e.response.status);
+  //         console.log(e.response.headers);
+  //       }
+  //       else {
+  //         //get no response
+  //         console.log(`Error: ${e.message}`)
+  //       }
+  //     }
+  //   }
+  //   fetchPosts();
+  // },[]);
 
   useEffect(()=>{
-    const fetchPosts = async () => {
-      try{
-        const response = await api.get('/posts');
-        if(response && response.data) setPosts(response.data);
-      }
-      catch(e){
-        if(e.response){
-          //get a response different from 200
-          console.log(e.response.data);
-          console.log(e.response.status);
-          console.log(e.response.headers);
-        }
-        else {
-          //get no response
-          console.log(`Error: ${e.message}`)
-        }
-      }
-    }
-    fetchPosts();
-  },[]);
+    setPosts(data);
+  },[data]);
 
   useEffect(()=>{
     const filteredResults = posts.filter(post => 
@@ -111,8 +120,18 @@ function App() {
 
   return (
 		<Routes>
-				<Route path='/' element={<Layout search={search} setSearch={setSearch}/>}>
-					<Route index element={<Home posts={searchResult}/>} />
+				<Route path='/' 
+          element={
+            <Layout search={search} setSearch={setSearch} width={width}/>
+          }>
+					<Route index element={
+            <Home 
+              posts={searchResult}
+              fetchError = {fetchError}
+              isLoading = {isLoading}
+              />
+            } 
+          />
           <Route path='post'>
             <Route index element={<NewPost
               handleSubmit = {handleSubmit}
